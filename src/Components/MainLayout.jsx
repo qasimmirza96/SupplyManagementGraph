@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { IoIosArrowDropdown } from "react-icons/io";
 import { onValue, ref } from "firebase/database";
 import NeedleChart2 from "./NeedleChart2";
 import NeedleChart4 from "./NeedleChart4";
 import style from "./mainLayout.module.scss";
-
+import { useStripe, useElements, CardElement, Elements } from "@stripe/react-stripe-js";
 // importing firebass related modules
 // import { collection, getDocs } from "firebase/firestore/lite";
 import { db } from "../firebaseConfig";
@@ -12,6 +12,7 @@ import CsvDownload from "react-csv-downloader";
 import CustomBarChart from "./CustomBarChart";
 import CustomLineChart from "./CustomLineChart";
 import FilterComponent from "./FilterComponent";
+import { loadStripe } from "@stripe/stripe-js";
 
 // genetrating random data with generateRandomData.
 function generateRandomData() {
@@ -34,19 +35,132 @@ function generateRandomData() {
     },
   };
 }
+function useResponsiveFontSize() {
+  const getFontSize = () => (window.innerWidth < 450 ? "16px" : "18px");
+  const [fontSize, setFontSize] = useState(getFontSize);
 
+  useEffect(() => {
+    const onResize = () => {
+      setFontSize(getFontSize());
+    };
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+    };
+  });
+
+  return fontSize;
+}
+function useOptions () {
+  const fontSize = useResponsiveFontSize();
+  const options = useMemo(
+    () => ({
+      style: {
+        base: {
+          fontSize,
+         
+          color: "#424770",
+          letterSpacing: "0.025em",
+          fontFamily: "Source Code Pro, monospace",
+          "::placeholder": {
+            color: "#aab7c4"
+          }
+        },
+        invalid: {
+          color: "#9e2146"
+        }
+      }
+    }),
+    [fontSize]
+  );
+
+  return options;
+};
 function MainLayout() {
   // state of the component
   const [isListVisible, setListVisibility] = useState(false);
   const [isListVisible2, setListVisibility2] = useState(false);
+  const [isListVisible3, setListVisibility3] = useState(false);
+  const [isListVisible4, setListVisibility4] = useState(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+ 
+
+
+  
+
   const [history, setHistory] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState("Last week");
+
+  const [history2, setHistory2] = useState(false);
+  const [selectedHistory2, setSelectedHistory2] = useState("Upcoming week");
+
   const [data, setData] = useState(generateRandomData());
   const [cities, setCities] = useState([]);
   const [selectedOption, setSelectedOption] = useState("All");
+  const [selectedOption2, setSelectedOption2] = useState("All");
   // const [lineChartData, setLineChartData] = useState([]);
 
   const [lineChartData, setLineChartData] = useState([
+    {
+      name: "Monday",
+      pv: 5003,
+      curr: 3900,
+      vol: 7000,
+      freq: 6400,
+      pow: 10000,
+    },
+    {
+      name: "Tuesday",
+
+      curr: 2900,
+      vol: 7000,
+      freq: 9998,
+      pow: 2210,
+    },
+    {
+      name: "Wednesday",
+
+      curr: 4900,
+      vol: 5000,
+      freq: 9800,
+      pow: 4290,
+    },
+    {
+      name: "Thursday",
+
+      curr: 5900,
+      vol: 8980,
+      freq: 7908,
+      pow: 2000,
+    },
+    {
+      name: "Friday",
+
+      curr: 1900,
+      vol: 9890,
+      freq: 2800,
+      pow: 2181,
+    },
+    {
+      name: "Saturday",
+
+      curr: 6900,
+      vol: 5390,
+      freq: 9800,
+      pow: 3500,
+    },
+    {
+      name: "Sunday",
+      curr: 3900,
+      vol: 8980,
+      freq: 6908,
+      pow: 2000,
+    },
+  ]);
+  const [lineChartData2, setLineChartData2] = useState([
     {
       name: "Monday",
       pv: 5003,
@@ -128,6 +242,55 @@ function MainLayout() {
     setLineChartData(newData);
   };
 
+
+  const stripe = useStripe();
+  const elements = useElements();
+  const options = useOptions();
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+
+    if (!stripe || !elements) {
+      // Stripe.js has not loaded yet. Make sure to disable
+      // form submission until Stripe.js has loaded.
+      return;
+    }
+
+    const payload = await stripe.createPaymentMethod({
+      type: "card",
+      card: elements.getElement(CardElement)
+    });
+
+    console.log("[PaymentMethod]", payload);
+   if(payload?.paymentMethod){ setIsModalOpen(false)
+    alert('Your bill pay sucessfully!!')}
+  };
+
+
+  const handleHistorySelect2 = (option) => {
+    setSelectedHistory2(option);
+    setHistory2(false);
+
+    // Logic to generate new lineChartData based on the selected history
+    let newData = [];
+    switch (option) {
+      case "Upcoming week":
+        newData = generateChartDataForDays(7);
+        break;
+      case "Upcoming month":
+        newData = generateChartDataForWeeks(4); // 4 weeks in a month
+        break;
+      case "Upcoming year":
+        newData = generateChartDataForMonths(12);
+        break;
+      default:
+        newData = lineChartData2;
+        break;
+    }
+
+    setLineChartData2(newData);
+  };
+
   // Function to generate chart data for a given number of days
   const generateChartDataForDays = (numDays) => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -195,9 +358,24 @@ function MainLayout() {
     setListVisibility(false); // Close the second rectangle when the first one is clicked
   };
 
+
+  const toggleListVisibility3 = () => {
+    setListVisibility3(!isListVisible3);
+    setListVisibility4(false); // Close the first rectangle when the first one is clicked
+  };
+  const toggleListVisibility4 = () => {
+    setListVisibility4(!isListVisible4);
+    setListVisibility3(false); // Close the second rectangle when the first one is clicked
+  };
+
   const handleOptionSelect = (option) => {
     setSelectedOption(option);
     setListVisibility(false);
+  };
+
+  const handleOptionSelect2 = (option) => {
+    setSelectedOption2(option);
+    setListVisibility3(false);
   };
 
   useEffect(() => {
@@ -567,7 +745,122 @@ function MainLayout() {
                           }
                         })}
                     </div>
+                    
                   </div>
+                  
+                </div>
+               
+              </div>
+              <div className={style.bigBoxWrapper}>
+                <div className="flexx al  jc">
+                  <div className={style.rectangle}>
+                    <div className={style.innerRect}>
+                      {selectedOption2}
+
+                      <ul
+                        style={{
+                          display: isListVisible3 ? "block" : "none",
+                        }}
+                      >
+                        <li onClick={() => handleOptionSelect2("All")}>All</li>
+                        <li onClick={() => handleOptionSelect2("Current")}>
+                          Current
+                        </li>
+                        <li onClick={() => handleOptionSelect2("Voltage")}>
+                          Voltage
+                        </li>
+                        <li onClick={() => handleOptionSelect2("Frequency")}>
+                          Frequency
+                        </li>
+                        <li onClick={() => handleOptionSelect2("Power")}>
+                          Power
+                        </li>
+                      </ul>
+                      <span>
+                        {" "}
+                        <IoIosArrowDropdown
+                          onClick={toggleListVisibility3}
+                        />{" "}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={style.rectangle}>
+                    <div className={style.innerRect}>
+                      {selectedHistory2}
+                      <ul
+                        style={{
+                          display: isListVisible4 ? "block" : "none",
+                        }}
+                      >
+                        <li onClick={() => handleHistorySelect2("Upcoming week")}>
+                          Upcoming week
+                        </li>
+                        <li onClick={() => handleHistorySelect2("Upcoming month")}>
+                        Upcoming month
+                        </li>
+                      
+                      </ul>
+                      <span>
+                        <IoIosArrowDropdown onClick={toggleListVisibility4} />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+            
+                <div
+                  className={style.bigBox}
+                  style={{
+                    position: "relative",
+                    top: isListVisible3 ? "24vh" : isListVisible4 ? "15vh" : 0,
+                  }}
+                >
+                  <h3>Prediction chart</h3>
+                  <CustomLineChart
+                    lineChatData={lineChartData2}
+                    selectedOption={selectedOption2}
+                  />
+
+                  <div className={style.innerBigBox}>
+                    <div className={style.vlaues}>
+                      {cities &&
+                        Object.entries(cities).map(([key, value], index) => {
+                          if (index === 0) {
+                            return (
+                              <table style={{ width: "100%" }}>
+                                <tr>
+                                  <th>Values</th>
+                                  <th>Min</th>
+                                  <th>Max</th>
+                                </tr>
+                                <tr>
+                                  <td>Current</td>
+                                  <td>{value?.Sensor1?.Current}</td>
+                                  <td>{value?.Sensor3?.Current}</td>
+                                </tr>
+                                <tr>
+                                  <td>Power</td>
+                                  <td>{value?.Sensor1?.Power}</td>
+                                  <td>{value?.Sensor3?.Power}</td>
+                                </tr>
+                                <tr>
+                                  <td>Voltage</td>
+                                  <td>{value?.Sensor2?.Voltage}</td>
+                                  <td>{value?.Sensor3?.Voltage}</td>
+                                </tr>
+                                <tr>
+                                  <td>Frequency</td>
+                                  <td>{value?.Sensor1?.Frequency}</td>
+                                  <td>{value?.Sensor3?.Frequency}</td>
+                                </tr>
+                              </table>
+                            );
+                          }
+                        })}
+                    </div>
+                    
+                  </div>
+                  
                 </div>
               </div>
             </div>
@@ -575,6 +868,9 @@ function MainLayout() {
 
           <div className={style.right}>
             <div className={style.innerRight}>
+           
+                <button className="downloadData" onClick={()=>setIsModalOpen(true)} style={{height:50}}>Pay bill</button>
+            
               <div className="downloadData">
                 <CsvDownload
                   text="Download"
@@ -585,7 +881,10 @@ function MainLayout() {
                 />
               </div>
 
-              <div className={`   ${style.box} smBox `}>
+            
+
+
+              <div className={`${style.box} smBox `}>
                 <form className={style.form}>
                   <label>
                     {" "}
@@ -610,6 +909,35 @@ function MainLayout() {
             </div>
           </div>
         </div>
+        {isModalOpen && (
+          <div className="modal">
+             
+             <form style={{width:'85%'}} onSubmit={handleSubmit}>
+      <label>
+        Card details
+        <CardElement
+          options={options}
+          onReady={() => {
+            console.log("CardElement [ready]");
+          }}
+          onChange={event => {
+            console.log("CardElement [change]", event);
+          }}
+          onBlur={() => {
+            console.log("CardElement [blur]");
+          }}
+          onFocus={() => {
+            console.log("CardElement [focus]");
+          }}
+        />
+      </label>
+      <button type="submit" className="downloadData" style={{width:'78%',height:50}} disabled={!stripe}>
+        Pay
+      </button>
+    </form>
+  
+          </div>
+        )}
       </div>
     </>
   );
